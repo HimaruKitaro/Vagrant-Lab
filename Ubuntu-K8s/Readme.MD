@@ -35,4 +35,39 @@ kube-system   kube-scheduler-master-node01            1/1     Running   0       
 vagrant@master-node01:~$
 ```
 
+**Deploy Metric Server and Dashboard**
+```
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.3.6/components.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0/aio/deploy/recommended.yaml
+```
+
+**Create Sample to access Dashboard**
+```
+$ cat admin-user.yml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+
+$ kubectl apply -f admin-user.yml
+$ kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep admin-user | awk '{print $1}')
+$ kubectl proxy
+```
+> Dashboard is available at http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/. Token is available from command above describing the secrets.
+
 **Prepared by: J.A**
