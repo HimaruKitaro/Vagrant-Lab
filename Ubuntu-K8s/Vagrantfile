@@ -1,0 +1,101 @@
+$script = <<-SCRIPT
+echo Initialize hosts 
+sudo echo "127.0.0.1 localhost" > /etc/hosts
+sudo echo "172.16.100.10 master-node01" >> /etc/hosts
+sudo echo "172.16.100.11 worker-node01" >> /etc/hosts
+sudo echo "172.16.100.12 worker-node02" >> /etc/hosts
+sudo usermod -aG docker vagrant
+sudo swapoff -a
+sudo systemctl enable docker
+cat > /etc/docker/daemon.json <<EOF
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+mkdir -p /etc/systemd/system/docker.service.d
+systemctl daemon-reload
+systemctl restart docker
+sudo sed -i "s/.*PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+sudo systemctl restart sshd
+SCRIPT
+
+$controlplane = <<-SCRIPT
+echo Initialize Control Plane
+sudo echo "127.0.0.1 localhost" > /etc/hosts
+sudo echo "172.16.100.10 master-node01" >> /etc/hosts
+sudo echo "172.16.100.11 worker-node01" >> /etc/hosts
+sudo echo "172.16.100.12 worker-node02" >> /etc/hosts
+sudo usermod -aG docker vagrant
+sudo swapoff -a
+sudo systemctl enable docker
+cat > /etc/docker/daemon.json <<EOF
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+mkdir -p /etc/systemd/system/docker.service.d
+systemctl daemon-reload
+systemctl restart docker
+sudo kubeadm init --pod-network-cidr=10.217.0.0/16 --apiserver-advertise-address=172.16.100.10
+mkdir -p /home/vagrant/.kube
+sudo cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+sudo chown vagrant:vagrant /home/vagrant/.kube/config
+sudo su - vagrant -c "kubectl taint nodes --all node-role.kubernetes.io/master-"
+sudo su - vagrant -c "kubectl create -f https://raw.githubusercontent.com/cilium/cilium/v1.6/install/kubernetes/quick-install.yaml"
+sudo sed -i "s/.*PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+sudo systemctl restart sshd
+sudo apt install sshpass
+TOKEN=$(kubeadm token list | tail -1 | cut -f1 -d' ')
+HASH=$(openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //')
+sshpass -p 'vagrant' ssh -o StrictHostKeyChecking=no vagrant@worker-node01 "sudo kubeadm join --token $TOKEN master-node01:6443 --discovery-token-ca-cert-hash sha256:$HASH"
+sshpass -p 'vagrant' ssh -o StrictHostKeyChecking=no vagrant@worker-node02 "sudo kubeadm join --token $TOKEN master-node01:6443 --discovery-token-ca-cert-hash sha256:$HASH"
+SCRIPT
+
+Vagrant.configure("2") do |config|
+	config.vm.define "worker-node01" do |workernode01|
+		config.ssh.insert_key = false
+		workernode01.vm.box = "ubuntu-k8s"
+		workernode01.vm.hostname = "worker-node01"
+		workernode01.vm.network "private_network", ip: "172.16.100.11", netmask: "255.255.255.0"
+		workernode01.vm.provision "shell", inline: $script
+		workernode01.vm.provider :virtualbox do |vb|
+			vb.customize ["modifyvm", :id, "--memory", "2048"]
+			vb.customize ["modifyvm", :id, "--cpus", "2"]
+		end
+	end  
+	
+	config.vm.define "worker-node02" do |workernode02|
+		config.ssh.insert_key = false
+		workernode02.vm.box = "ubuntu-k8s"
+		workernode02.vm.hostname = "worker-node02"
+		workernode02.vm.network "private_network", ip: "172.16.100.12", netmask: "255.255.255.0"
+		workernode02.vm.provision "shell", inline: $script
+		workernode02.vm.provider :virtualbox do |vb|
+			vb.customize ["modifyvm", :id, "--memory", "2048"]
+			vb.customize ["modifyvm", :id, "--cpus", "2"]
+		end
+	end  
+	
+	config.vm.define "master-node01" do |masternode01|
+		config.ssh.insert_key = false
+		masternode01.vm.box = "ubuntu-k8s"
+		masternode01.vm.hostname = "master-node01"
+		masternode01.vm.network "private_network", ip: "172.16.100.10", netmask: "255.255.255.0"
+		masternode01.vm.provision "shell", inline: $controlplane
+		masternode01.vm.provider :virtualbox do |vb|
+			vb.customize ["modifyvm", :id, "--memory", "2048"]
+			vb.customize ["modifyvm", :id, "--cpus", "2"]
+		end
+	end
+	config.vm.provider "virtualbox"
+end
