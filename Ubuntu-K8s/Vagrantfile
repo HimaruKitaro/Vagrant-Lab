@@ -1,9 +1,9 @@
 $script = <<-SCRIPT
 echo Initialize hosts 
 sudo echo "127.0.0.1 localhost" > /etc/hosts
-sudo echo "172.16.100.10 master-node01" >> /etc/hosts
-sudo echo "172.16.100.11 worker-node01" >> /etc/hosts
-sudo echo "172.16.100.12 worker-node02" >> /etc/hosts
+sudo echo "172.26.100.10 master-node01" >> /etc/hosts
+sudo echo "172.26.100.11 worker-node01" >> /etc/hosts
+sudo echo "172.26.100.12 worker-node02" >> /etc/hosts
 sudo usermod -aG docker vagrant
 sudo swapoff -a
 sudo systemctl enable docker
@@ -27,9 +27,9 @@ SCRIPT
 $controlplane = <<-SCRIPT
 echo Initialize Control Plane
 sudo echo "127.0.0.1 localhost" > /etc/hosts
-sudo echo "172.16.100.10 master-node01" >> /etc/hosts
-sudo echo "172.16.100.11 worker-node01" >> /etc/hosts
-sudo echo "172.16.100.12 worker-node02" >> /etc/hosts
+sudo echo "172.26.100.10 master-node01" >> /etc/hosts
+sudo echo "172.26.100.11 worker-node01" >> /etc/hosts
+sudo echo "172.26.100.12 worker-node02" >> /etc/hosts
 sudo usermod -aG docker vagrant
 sudo swapoff -a
 sudo systemctl enable docker
@@ -46,7 +46,7 @@ EOF
 mkdir -p /etc/systemd/system/docker.service.d
 systemctl daemon-reload
 systemctl restart docker
-sudo kubeadm init --pod-network-cidr=10.217.0.0/16 --apiserver-advertise-address=172.16.100.10
+sudo kubeadm init --pod-network-cidr=10.217.0.0/16 --apiserver-advertise-address=172.26.100.10
 mkdir -p /home/vagrant/.kube
 sudo cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
 sudo chown vagrant:vagrant /home/vagrant/.kube/config
@@ -66,7 +66,7 @@ Vagrant.configure("2") do |config|
 		config.ssh.insert_key = false
 		workernode01.vm.box = "ubuntu-k8s"
 		workernode01.vm.hostname = "worker-node01"
-		workernode01.vm.network "private_network", ip: "172.16.100.11", netmask: "255.255.255.0"
+		workernode01.vm.network "private_network", ip: "172.26.100.11", netmask: "255.255.255.0"
 		workernode01.vm.provision "shell", inline: $script
 		workernode01.vm.provider :virtualbox do |vb|
 			vb.customize ["modifyvm", :id, "--memory", "2048"]
@@ -78,7 +78,7 @@ Vagrant.configure("2") do |config|
 		config.ssh.insert_key = false
 		workernode02.vm.box = "ubuntu-k8s"
 		workernode02.vm.hostname = "worker-node02"
-		workernode02.vm.network "private_network", ip: "172.16.100.12", netmask: "255.255.255.0"
+		workernode02.vm.network "private_network", ip: "172.26.100.12", netmask: "255.255.255.0"
 		workernode02.vm.provision "shell", inline: $script
 		workernode02.vm.provider :virtualbox do |vb|
 			vb.customize ["modifyvm", :id, "--memory", "2048"]
@@ -90,7 +90,7 @@ Vagrant.configure("2") do |config|
 		config.ssh.insert_key = false
 		masternode01.vm.box = "ubuntu-k8s"
 		masternode01.vm.hostname = "master-node01"
-		masternode01.vm.network "private_network", ip: "172.16.100.10", netmask: "255.255.255.0"
+		masternode01.vm.network "private_network", ip: "172.26.100.10", netmask: "255.255.255.0"
 		masternode01.vm.provision "shell", inline: $controlplane
 		masternode01.vm.provider :virtualbox do |vb|
 			vb.customize ["modifyvm", :id, "--memory", "2048"]
