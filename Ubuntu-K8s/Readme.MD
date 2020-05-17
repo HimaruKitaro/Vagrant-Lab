@@ -1,6 +1,6 @@
 ## Kubernetes Deployment via Vagrant
 
-This is to deploy 1 master and 2 worker nodes kubernetes cluster.
+This is to deploy 1 master and 2 worker nodes k8s cluster.
 
 **This is to reconfigure sshd_config upon deployment to allow SSH access** 
 ```
